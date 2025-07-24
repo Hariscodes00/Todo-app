@@ -8,11 +8,13 @@
 
 <body style="background-color: #f8f9fa;">
 <!-- Navbar -->
-    <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">📝 My Todo App</span>
-        </div>
-    </nav>
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <span class="navbar-brand mb-0 h1">📝 My Todo App</span>
+        <a href="/logout" class="btn btn-outline-light">Logout</a>
+    </div>
+</nav>
+
 
 <!-- Heading -->
     <div class="container text-center mb-5">
@@ -63,6 +65,7 @@
                     <td>{{ todo.date }}</td>
                     <td>
                         <a href="/delete/{{ todo.sno }}" class="btn btn-danger mx-1">Delete</a>
+                         <a href="/update/{{ todo.sno }}" class="btn btn-warning">Edit</a>
                     </td>
                 </tr>
                 {% endfor %}

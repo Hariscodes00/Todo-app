@@ -1,8 +1,10 @@
 #importing necessary modules
-from flask import Flask, render_template, request, redirect ,url_for,session
+from flask import Flask, render_template, request, redirect ,session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import date , timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+import random
+from flask_mail import Mail , Message
 
 #important configurations
 app = Flask(__name__)
@@ -11,6 +13,15 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=1)
 app.config['SECRET_KEY'] = '123456'
 db = SQLAlchemy(app)
+
+#mail configuration
+app.config['MAIL_SERVER']='smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'hariscodes00@gmail.com'
+app.config['MAIL_PASSWORD'] = 'ewiy heoy hhty lpko'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
 
 #Making The todo app
 #defining class for app table
@@ -27,6 +38,7 @@ class Todo(db.Model):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20) , nullable=False, unique=True)
+    email = db.Column(db.String(50), nullable=False, unique=True)
     password = db.Column(db.String(200) , nullable=False)
 
 
@@ -52,13 +64,85 @@ def home():
 def signup():
     if request.method == 'POST':
         username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
-        hashed_pass = generate_password_hash(password)
-        user = User(username=username , password=hashed_pass)
-        db.session.add(user)
-        db.session.commit()
-        return redirect('/login')
+
+
+        #Setting up OTP
+        otp = str(random.randint(1000,9999))
+        session['otp'] = otp
+
+
+        existing_user = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        if existing_user:
+             return 'Username or Email already exists!'
+
+        #Starting sessions
+        session['signup_data'] = {
+            'username' : username,
+            'email' : email,
+            'password_1': generate_password_hash(password)
+        }
+
+        #sending OTP
+        msg = Message('' ,sender = 'hariscodes00@gmail.com' , recipients = [email] )
+
+        msg.body = f'Your OTP is {otp}'
+        mail.send(msg)
+
+        return redirect('/otp')
     return render_template('signup.html')
+
+#OTP Route
+@app.route('/otp', methods =['GET' , 'POST'] )
+def otp ():
+    return render_template('otp.html')
+
+#Verifying OTP
+@app.route('/verify-otp' , methods = ['GET' , 'POST'])
+def verify():
+    if request.method =='POST':
+        user_otp = request.form.get('otp')
+        actual_otp = session.get('otp')
+        if user_otp == actual_otp:
+            data = session.get('signup_data')
+            if data:
+                user = User(
+                username = data['username'],
+                email = data['email'],
+                password = data['password_1']
+
+            )
+                db.session.add(user)
+                db.session.commit()
+
+                session.pop('otp',None)
+                session.pop('signup', None)
+
+                return redirect('/login')
+    error = "Invalid OTP. Please try again."
+    return render_template('otp.html' , error=error)
+
+#Resend OTP
+@app.route('/resend-otp', methods = ['POST'])
+def resend():
+    otp = str(random.randint(1000,9999))
+    session['otp'] = otp
+    email = session.get('email')
+    if not email:
+        return redirect('/signup')
+
+    msg = Message ('' , sender = 'hariscodes00@gmail.com' , recipients = [email])
+    msg.body = f'You OTP is {otp}'
+
+    mail.send(msg)
+
+    return render_template('otp.html' , message = 'OTP Resend Successfully')
+
+
+
 
 #login route
 @app.route('/login', methods=['GET', 'POST'])
@@ -83,13 +167,24 @@ def logout():
 #Defining Delete Action
 @app.route("/delete/<int:sno>" )
 def delete(sno):
-    if 'user_id' not in session:
-        return redirect('/login')
-    todo = Todo.query.get_or_404(sno)
+    todo = db.session.get(Todo, sno)
     db.session.delete(todo)
     db.session.commit()
     return redirect ('/')
 
+@app.route("/update/<int:sno>" , methods = ['GET','POST'])
+def update(sno):
+    todo = Todo.query.filter_by(sno=sno).first()
+    if request.method == 'POST':
+        title = request.form.get('title')
+        desc = request.form.get('desc')
+        todo.title = title
+        todo.desc = desc
+        db.session.commit()
+        return redirect ('/')
+    return render_template('update.html', todo=todo)
+
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
