@@ -87,7 +87,7 @@ def signup():
         }
 
         #sending OTP
-        msg = Message('' ,sender = 'hariscodes00@gmail.com' , recipients = [email] )
+        msg = Message('Verify Your Email - Haris Todo App' ,sender = 'hariscodes00@gmail.com' , recipients = [email] )
 
         msg.body = f'Your OTP is {otp}'
         mail.send(msg)
@@ -118,9 +118,6 @@ def verify():
                 db.session.add(user)
                 db.session.commit()
 
-                session.pop('otp',None)
-                session.pop('signup', None)
-
                 return redirect('/login')
     error = "Invalid OTP. Please try again."
     return render_template('otp.html' , error=error)
@@ -130,12 +127,12 @@ def verify():
 def resend():
     otp = str(random.randint(1000,9999))
     session['otp'] = otp
-    email = session.get('email')
+    email = session.get('signup_data', {}).get('email')
     if not email:
         return redirect('/signup')
 
-    msg = Message ('' , sender = 'hariscodes00@gmail.com' , recipients = [email])
-    msg.body = f'You OTP is {otp}'
+    msg = Message ('Verify Your Email - Haris Todo App' , sender = 'hariscodes00@gmail.com' , recipients = [email])
+    msg.body = f'Your OTP is {otp}'
 
     mail.send(msg)
 
@@ -187,4 +184,4 @@ def update(sno):
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
